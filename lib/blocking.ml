@@ -143,9 +143,7 @@ let rollback mariadb =
 let prepare mariadb query =
   let build_stmt raw =
     if B.mysql_stmt_prepare raw query then
-      match Common.Stmt.init mariadb raw with
-      | Some stmt -> Ok stmt
-      | None -> Error (Common.error mariadb)
+      Ok (Common.Stmt.init mariadb raw)
     else
       Error (Common.error mariadb) in
   match Common.stmt_init mariadb with
@@ -173,6 +171,13 @@ end
 module Stmt = struct
   type t = [`Blocking] Common.Stmt.t
 
+  let free_meta stmt =
+    match stmt.Common.Stmt.meta with
+    | Some { res } ->
+        B.mysql_free_result res;
+        stmt.Common.Stmt.meta <- None
+    | None -> ()
+
   let execute stmt params =
     let n = B.mysql_stmt_param_count stmt.Common.Stmt.raw in
     if n <> Array.length params then
@@ -180,6 +185,7 @@ module Stmt = struct
     else begin
       let exec stmt =
         let raw = stmt.Common.Stmt.raw in
+        free_meta stmt;
         if B.mysql_stmt_execute raw && B.mysql_stmt_store_result raw then
           match Common.Stmt.bind_result stmt with
           | `Ok res_or_none -> Ok res_or_none
@@ -191,16 +197,18 @@ module Stmt = struct
       | `Error e -> Error e
     end
 
+  let free_res stmt =
+    free_meta stmt;
+    B.mysql_stmt_free_result stmt.Common.Stmt.raw
+
   let reset stmt =
-    let raw = stmt.Common.Stmt.raw in
-    if B.mysql_stmt_free_result raw && B.mysql_stmt_reset raw then
+    if free_res stmt && B.mysql_stmt_reset stmt.Common.Stmt.raw then
       Ok ()
     else
       Error (Common.Stmt.error stmt)
 
   let close stmt =
-    let raw = stmt.Common.Stmt.raw in
-    if B.mysql_stmt_free_result raw && B.mysql_stmt_close raw then
+    if free_res stmt && B.mysql_stmt_close stmt.Common.Stmt.raw then
       Ok ()
     else
       Error (Common.Stmt.error stmt)

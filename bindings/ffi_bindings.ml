@@ -273,6 +273,9 @@ module Bindings (F : Cstubs.FOREIGN) = struct
 
   (* Blocking API *)
 
+  let mysql_free_result = foreign "mysql_free_result"
+    (res @-> returning void)
+
   let mysql_real_connect = foreign "mysql_real_connect"
     (mysql @-> ptr_opt char @-> ptr_opt char @->
      ptr_opt char @-> ptr_opt char @-> uint @-> ptr_opt char @-> ulong @->
@@ -420,6 +423,12 @@ module Bindings (F : Cstubs.FOREIGN) = struct
 
   let mysql_stmt_free_result_cont = foreign "mysql_stmt_free_result_cont"
     (ptr my_bool @-> stmt @-> int @-> returning int)
+
+  let mysql_free_result_start = foreign "mysql_free_result_start"
+    (res @-> returning int)
+
+  let mysql_free_result_cont = foreign "mysql_free_result_cont"
+    (res @-> int @-> returning int)
 
   let mysql_commit_start = foreign "mysql_commit_start"
     (ptr my_bool @-> mysql @-> returning int)
